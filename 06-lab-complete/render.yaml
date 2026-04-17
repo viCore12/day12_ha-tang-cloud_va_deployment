@@ -4,6 +4,7 @@ services:
     runtime: docker
     region: singapore
     plan: starter
+    rootDir: 06-lab-complete
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -17,7 +18,19 @@ services:
         generateValue: true
       - key: JWT_SECRET
         generateValue: true
-      - key: DAILY_BUDGET_USD
-        value: "5.0"
+      - key: MONTHLY_BUDGET_USD
+        value: "10.0"
       - key: RATE_LIMIT_PER_MINUTE
-        value: "20"
+        value: "10"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ai-agent-redis
+          property: connectionString
+
+  - type: redis
+    name: ai-agent-redis
+    region: singapore
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []

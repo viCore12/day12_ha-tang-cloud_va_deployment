@@ -45,19 +45,25 @@ Kết hợp TẤT CẢ những gì đã học trong 1 project hoàn chỉnh.
 ```bash
 # 1. Setup
 cp .env.example .env
+# sửa AGENT_API_KEY trong .env
 
-# 2. Chạy với Docker Compose
-docker compose up
+# 2. Chạy full stack (nginx + 3 agent + redis)
+docker compose up --scale agent=3 --build
 
-# 3. Test
+# 3. Health check (qua nginx)
 curl http://localhost/health
 
-# 4. Lấy API key từ .env, test endpoint
-API_KEY=$(grep AGENT_API_KEY .env | cut -d= -f2)
+# 4. Test endpoint với API key + user_id
+API_KEY=$(grep ^AGENT_API_KEY .env | cut -d= -f2)
 curl -H "X-API-Key: $API_KEY" \
      -X POST http://localhost/ask \
      -H "Content-Type: application/json" \
-     -d '{"question": "What is deployment?"}'
+     -d '{"user_id": "test-user", "question": "What is deployment?"}'
+
+# 5. Quan sát load balancing — header X-Served-By đổi giữa các instance
+for i in {1..6}; do
+  curl -sI -H "X-API-Key: $API_KEY" http://localhost/health | grep -i x-served-by
+done
 ```
 
 ---
