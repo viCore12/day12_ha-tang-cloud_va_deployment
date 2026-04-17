@@ -1,109 +1,172 @@
-# Day 12 — Deployment: Đưa Agent Lên Cloud
+# Day 12 — Deploy AI Agent to Production
 
-> **AICB-P1 · VinUniversity 2026**  
-> Repository thực hành đi kèm bài giảng Day 12.  
-> Mỗi phần có ví dụ **cơ bản** (hiểu concept) và **chuyên sâu** (production-ready).
+> **AICB-P1 · VinUniversity 2026**
+> **Student:** Lưu Lương Vi Nhân — Submission 2026-04-17
+
+Lab về: `dev → production` gap, Docker, cloud deploy, API security, scaling & reliability.
+
+**Live deployment:** https://day12ha-tang-cloudvadeployment-production.up.railway.app
 
 ---
 
-## Cấu Trúc Project
+## Deliverables
+
+| File | Nội dung |
+|------|---------|
+| [MISSION_ANSWERS.md](MISSION_ANSWERS.md) | Trả lời 5 parts + test outputs |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | URL + env vars + test commands |
+| [06-lab-complete/](06-lab-complete/) | Source code production-ready (Part 6) |
+| [screenshots/](screenshots/) | Dashboard + deploy log + test output screenshots |
+
+---
+
+## Cấu trúc repo
 
 ```
-day12_ha-tang-cloud_va_deployment/
-├── 01-localhost-vs-production/     # Section 1: Dev ≠ Production
-│   ├── develop/                      #   Agent "đúng kiểu localhost"
-│   └── production/                   #   12-Factor compliant agent
-│
-├── 02-docker/                      # Section 2: Containerization
-│   ├── develop/                      #   Dockerfile đơn giản
-│   └── production/                   #   Multi-stage + Docker Compose stack
-│
-├── 03-cloud-deployment/            # Section 3: Cloud Options
-│   ├── railway/                    #   Deploy Railway (< 5 phút)
-│   ├── render/                     #   Deploy Render + render.yaml
-│   └── production-cloud-run/         #   GCP Cloud Run + CI/CD
-│
-├── 04-api-gateway/                 # Section 4: Security
-│   ├── develop/                      #   API Key authentication
-│   └── production/                   #   JWT + Rate Limiting + Cost Guard
-│
-├── 05-scaling-reliability/         # Section 5: Scale & Reliability
-│   ├── develop/                      #   Health check + graceful shutdown
-│   └── production/                   #   Stateless + Redis + Nginx LB
-│
-├── 06-lab-complete/                # Lab 12: Production-ready agent
-│   └── (full project kết hợp tất cả)
-│
-└── utils/                          # Mock LLM dùng chung (không cần API key)
+.
+├── 01-localhost-vs-production/   # Dev ≠ Production
+├── 02-docker/                    # Containerization
+├── 03-cloud-deployment/          # Railway / Render / Cloud Run examples
+├── 04-api-gateway/               # Auth / Rate limit / Cost guard
+├── 05-scaling-reliability/       # Health check / Stateless / LB
+├── 06-lab-complete/              # ⭐ FINAL SUBMISSION: tất cả kết hợp
+├── utils/mock_llm.py             # Mock LLM dùng chung
+├── MISSION_ANSWERS.md
+└── DEPLOYMENT.md
 ```
 
 ---
 
-## 🚀 Bắt Đầu Nhanh
+## Yêu cầu môi trường
 
-**Muốn thử ngay?** → [QUICK_START.md](QUICK_START.md) (5 phút)
-
-**Muốn học kỹ?** → [CODE_LAB.md](CODE_LAB.md) (3-4 giờ)
-
-## Cách Học
-
-| Bước | Làm gì |
-|------|--------|
-| 0 | **[Khuyến nghị]** Đọc [QUICK_START.md](QUICK_START.md) để thử nhanh |
-| 1 | Đọc [CODE_LAB.md](CODE_LAB.md) để hiểu chi tiết |
-| 2 | Chạy ví dụ **basic** trước — hiểu concept |
-| 3 | So sánh với ví dụ **advanced** — thấy sự khác biệt |
-| 4 | Tự làm Lab 06 từ đầu trước khi xem solution |
-| 5 | Tham khảo [QUICK_REFERENCE.md](QUICK_REFERENCE.md) khi cần |
-| 6 | Xem [TROUBLESHOOTING.md](TROUBLESHOOTING.md) khi gặp lỗi |
-
----
-
-## Yêu Cầu
-
-```bash
+```
 python 3.11+
 docker & docker compose
+git
 ```
 
-Mỗi folder có `requirements.txt` riêng. Không cần API key thật — các ví dụ dùng **mock LLM** để chạy offline.
+Không cần OpenAI API key — lab dùng mock LLM.
 
 ---
 
-## Sections
+## Cách chạy
 
-| # | Folder | Concept chính |
-|---|--------|--------------|
-| 1 | `01-localhost-vs-production` | Dev/prod gap, 12-factor, secrets |
-| 2 | `02-docker` | Dockerfile, multi-stage, docker-compose |
-| 3 | `03-cloud-deployment` | Railway, Render, Cloud Run |
-| 4 | `04-api-gateway` | Auth, rate limiting, cost protection |
-| 5 | `05-scaling-reliability` | Health check, stateless, rolling deploy |
-| 6 | `06-lab-complete` | **Full production agent** |
+### Option 1 — Chạy local (không Docker)
+
+```bash
+cd 06-lab-complete
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# sửa AGENT_API_KEY, JWT_SECRET trong .env
+
+# chạy app
+cd ..
+PYTHONPATH=. uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload \
+  --app-dir 06-lab-complete
+```
+
+Rate limit và cost guard sẽ fallback in-memory (không cần Redis).
+
+### Option 2 — Chạy Docker stack (khuyến nghị, demo scale + LB)
+
+```bash
+cd 06-lab-complete
+cp .env.example .env
+# sửa AGENT_API_KEY trong .env
+
+docker compose up --scale agent=3 --build
+```
+
+Stack gồm:
+- `nginx` (port `:80`) — load balancer round-robin
+- `agent` x 3 replicas — FastAPI app (chỉ expose internal)
+- `redis` — shared state (rate limit + cost counter)
+
+### Option 3 — Dùng live deployment trên Railway
+
+```bash
+URL=https://day12ha-tang-cloudvadeployment-production.up.railway.app
+KEY=<AGENT_API_KEY bạn set trên Railway Variables>
+```
+
+Xem [DEPLOYMENT.md](DEPLOYMENT.md) để biết cách tự deploy mới.
 
 ---
 
-## 📚 Lab Materials
+## Test commands
 
-Chúng tôi đã chuẩn bị đầy đủ tài liệu hướng dẫn:
+### Health + readiness
+```bash
+curl $URL/health
+curl $URL/ready
+```
 
-### Cho Sinh Viên
+### Authentication (401 → 200)
+```bash
+# Không key → 401
+curl -X POST $URL/ask \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test","question":"Hello"}'
 
-| Tài liệu | Mô tả | Thời gian |
-|----------|-------|-----------|
-| **[CODE_LAB.md](CODE_LAB.md)** | Hướng dẫn lab chi tiết từng bước | 3-4 giờ |
-| **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** | Cheat sheet các lệnh và patterns | Tra cứu |
-| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Giải quyết lỗi thường gặp | Khi cần |
+# Có key → 200
+curl -X POST $URL/ask \
+  -H "X-API-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"user_id":"test","question":"Hello"}'
+```
 
-### Cho Giảng Viên
+### Rate limit (10/min per user → 11th request → 429)
+```bash
+for i in $(seq 1 12); do
+  curl -s -o /dev/null -w "req $i → %{http_code}\n" \
+    -X POST $URL/ask -H "X-API-Key: $KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"user_id":"rl-demo","question":"ping"}'
+done
+```
+
+### Metrics (per-user budget)
+```bash
+curl "$URL/metrics?user_id=test" -H "X-API-Key: $KEY"
+```
+
+### Load balancing test (local Docker stack only)
+```bash
+# Nginx thêm header X-Served-By cho biết instance nào xử lý
+for i in {1..6}; do
+  curl -sI http://localhost/health | grep -i x-served-by
+done
+```
+
+---
+
+## Verify production readiness
+
+```bash
+cd 06-lab-complete
+python3 check_production_ready.py
+```
+
+Kết quả: **20/20 checks passed** ✅
+
+---
+
+## Learning Materials (course-provided)
 
 | Tài liệu | Mô tả |
-|----------|-------|
-| **[INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md)** | Hướng dẫn chấm điểm và đánh giá |
+|---------|-------|
+| [CODE_LAB.md](CODE_LAB.md) | Hướng dẫn lab chi tiết từng bước |
+| [QUICK_START.md](QUICK_START.md) | Setup nhanh 5 phút |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | Cheat sheet |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Xử lý lỗi thường gặp |
+| [LEARNING_PATH.md](LEARNING_PATH.md) | Lộ trình học |
 
-### Cách Sử Dụng
+---
 
-1. **Trước lab:** Đọc [CODE_LAB.md](CODE_LAB.md) để hiểu tổng quan
-2. **Trong lab:** Làm theo từng Part, tham khảo [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
-3. **Gặp lỗi:** Xem [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-4. **Sau lab:** Nộp Part 6 Final Project để chấm điểm
+## Issues gặp phải trong quá trình deploy
+
+Xem phần "Troubleshooting history" trong [DEPLOYMENT.md](DEPLOYMENT.md) — 3 lỗi thực tế đã fix:
+
+1. Railway `startCommand` không shell-expand `$PORT` → app crash.
+2. Docker `pip --user` path mismatch do user home sai vị trí.
+3. Starlette `MutableHeaders` không có `.pop()` method.
