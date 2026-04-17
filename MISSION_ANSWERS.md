@@ -42,11 +42,9 @@
 
 ### Exercise 2.3: Image size so sánh
 
-| Version | Base | Kích thước |
-|---------|------|------------|
-| Develop (single-stage, `python:3.11` full) | `python:3.11` | ~1.02 GB |
-| Production (multi-stage, `python:3.11-slim`) | `python:3.11-slim` | ~230 MB |
-| **Giảm** | | **~77%** |
+- **Develop:** ~1020 MB (single-stage, base `python:3.11`)
+- **Production:** ~230 MB (multi-stage, base `python:3.11-slim`)
+- **Difference:** ~77% giảm
 
 Lý do: multi-stage chỉ copy `/root/.local` site-packages sang runtime, bỏ hẳn gcc/apt cache/dev headers.
 
@@ -61,6 +59,10 @@ Lý do: multi-stage chỉ copy `/root/.local` site-packages sang runtime, bỏ h
 - **Services:** 1 × agent (FastAPI + uvicorn) + 1 × Redis plugin
 - **Root directory:** `06-lab-complete`
 - **Target port:** 8000 (khớp với `PORT` env var)
+- **Screenshots:**
+  - [screenshots/dashboard.png](screenshots/dashboard.png) — Railway project canvas (agent + Redis)
+  - [screenshots/deploy-success.png](screenshots/deploy-success.png) — Deploy Logs with "Uvicorn running" + healthcheck success
+  - [screenshots/test-curl.png](screenshots/test-curl.png) — Terminal output of test commands (see [screenshots/test-output.md](screenshots/test-output.md))
 
 Xem chi tiết env vars + test output trong [DEPLOYMENT.md](DEPLOYMENT.md).
 
@@ -77,6 +79,26 @@ Railway `startCommand` trong `railway.toml` **không chạy qua shell** → `$PO
 - Key được check trong [app/auth.py](06-lab-complete/app/auth.py) bằng FastAPI dependency `verify_api_key` đọc header `X-API-Key`.
 - Sai/thiếu key → raise `HTTPException(401)` trước khi vào business logic.
 - **Rotate:** đổi `AGENT_API_KEY` trong Railway Variables → auto redeploy, key cũ vô hiệu ngay.
+
+**Test output (live Railway URL):**
+```bash
+# Không có key → 401
+$ curl -s -o /dev/null -w "HTTP %{http_code}\n" -X POST $URL/ask \
+    -H "Content-Type: application/json" -d '{"user_id":"x","question":"hi"}'
+HTTP 401
+
+# Có key hợp lệ → 200
+$ curl -s -X POST $URL/ask -H "X-API-Key: $KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"user_id":"demo","question":"Hello Railway!"}'
+{
+  "user_id": "demo",
+  "question": "Hello Railway!",
+  "answer": "Agent đang hoạt động tốt! (mock response) Hỏi thêm câu hỏi đi nhé.",
+  "model": "gpt-4o-mini",
+  "timestamp": "2026-04-17T08:24:09.678689+00:00"
+}
+```
 
 ### Exercise 4.2: JWT
 
